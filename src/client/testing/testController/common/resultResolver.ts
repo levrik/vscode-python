@@ -165,6 +165,11 @@ export class PythonResultResolver implements ITestResultResolver {
                     const text = `${testItem.test} failed: ${testItem.message ?? testItem.outcome}\r\n${traceback}`;
                     const message = new TestMessage(text);
 
+                    if (testItem.assertion) {
+                        message.expectedOutput = testItem.assertion.right;
+                        message.actualOutput = testItem.assertion.left;
+                    }
+
                     // note that keyTemp is a runId for unittest library...
                     const grabVSid = this.runIdToVSid.get(keyTemp);
                     // search through freshly built array of testItem to find the failed test and update UI.

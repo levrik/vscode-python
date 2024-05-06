@@ -20,6 +20,12 @@ from testing_tools import socket_manager  # noqa: E402
 # args through sys.argv. It then runs pytest.main() with the args and test_ids.
 
 if __name__ == "__main__":
+    # import debugpy
+
+    # debugpy.listen(5678)
+    # print("Waiting for debugger attach")
+    # debugpy.wait_for_client()
+
     # Add the root directory to the path so that we can import the plugin.
     directory_path = pathlib.Path(__file__).parent.parent
     sys.path.append(os.fspath(directory_path))

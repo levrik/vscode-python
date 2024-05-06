@@ -5,6 +5,7 @@ import atexit
 import json
 import os
 import pathlib
+import pprint
 import sys
 import traceback
 
@@ -16,7 +17,7 @@ sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
 
 from testing_tools import socket_manager  # noqa: E402
-from typing import Any, Dict, List, Optional, Union, TypedDict, Literal  # noqa: E402
+from typing import Any, Dict, List, Optional, Tuple, Union, TypedDict, Literal  # noqa: E402
 
 
 class TestData(TypedDict):
@@ -192,6 +193,15 @@ def pytest_keyboard_interrupt(excinfo):
     ERRORS.append(excinfo.exconly() + "\n Check Python Test Logs for more details.")
 
 
+_PRIMITIVES = (int, str, bool)
+
+
+class Assertion(Dict):
+    left: str
+    right: str
+    operator: str
+
+
 class TestOutcome(Dict):
     """A class that handles outcome for a single test.
 
@@ -203,6 +213,16 @@ class TestOutcome(Dict):
     message: Union[str, None]
     traceback: Union[str, None]
     subtest: Optional[str]
+    assertion: Optional[Assertion]
+
+
+def create_assertion(assertion: Tuple[str, Any, Any]) -> Assertion:
+    operator, left, right = assertion
+    return Assertion(
+        left=left if isinstance(left, _PRIMITIVES) else pprint.pformat(left),
+        right=right if isinstance(right, _PRIMITIVES) else pprint.pformat(right),
+        operator=operator,
+    )
 
 
 def create_test_outcome(
@@ -211,6 +231,7 @@ def create_test_outcome(
     message: Union[str, None],
     traceback: Union[str, None],
     subtype: Optional[str] = None,
+    assertion: Optional[Tuple[str, Any, Any]] = None,
 ) -> TestOutcome:
     """A function that creates a TestOutcome object."""
     return TestOutcome(
@@ -219,6 +240,7 @@ def create_test_outcome(
         message=message,
         traceback=traceback,  # TODO: traceback
         subtest=None,
+        assertion=create_assertion(assertion) if assertion else None,
     )
 
 
@@ -227,6 +249,15 @@ class testRunResultDict(Dict[str, Dict[str, TestOutcome]]):
 
     outcome: str
     tests: Dict[str, TestOutcome]
+
+
+last_assertion: Optional[Tuple[str, Any, Any]] = None
+"""Stores the last assertion as (operator, left, right)"""
+
+
+def pytest_assertrepr_compare(config, op, left, right):
+    global last_assertion
+    last_assertion = (op, left, right)
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
@@ -238,6 +269,10 @@ def pytest_report_teststatus(report, config):
     report -- the report on the test setup, call, and teardown.
     config -- configuration object.
     """
+
+    # import debugpy
+
+    # debugpy.breakpoint()
     cwd = pathlib.Path.cwd()
     if SYMLINK_PATH:
         cwd = SYMLINK_PATH
@@ -264,6 +299,7 @@ def pytest_report_teststatus(report, config):
                 report_value,
                 message,
                 traceback,
+                assertion=last_assertion,
             )
             collected_test = testRunResultDict()
             collected_test[absolute_node_id] = item_result

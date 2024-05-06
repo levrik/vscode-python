@@ -270,6 +270,7 @@ export type ExecutionTestPayload = {
             message?: string;
             traceback?: string;
             subtest?: string;
+            assertion?: { left: string; right: string; operator: string };
         };
     };
     notFound?: string[];
